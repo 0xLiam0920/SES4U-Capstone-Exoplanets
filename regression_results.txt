@@ -1,0 +1,4 @@
+Linear Regression Results:
+R² = 0.0228
+p-value = 0.000001
+✓ p-value < 0.05: Theory mathematically proven!

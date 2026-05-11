@@ -1,7 +1,7 @@
 # SES4U Capstone — Gas Giant Frequency & Stellar Metallicity
 
 > A replication study of the Metallicity–Planet Mass correlation using live data from the NASA Exoplanet Archive.
-> *Submitted to the Journal of Emerging Investigators (JEI) — SES4U, 2026*
+> *Submitted to the Journal of Emerging Investigators (JEI) SES4U, 2026*
 
 ---
 
@@ -9,7 +9,7 @@
 
 Do stars with higher iron content ([Fe/H]) preferentially host more massive gas giant planets?
 
-This study investigates the **Core Accretion Model** of planetary formation, which predicts that metal-rich protoplanetary disks can more rapidly build the solid rocky cores required to gravitationally accrete hydrogen gas — producing Jupiter-class planets. We test this prediction empirically using the largest available catalog of confirmed exoplanets.
+This study investigates the **Core Accretion Model** of planetary formation, which predicts that metal-rich protoplanetary disks can more rapidly build the solid rocky cores required to gravitationally accrete hydrogen gas, \\\\producing Jupiter-class planets. We test this prediction empirically using the largest available catalog of confirmed exoplanets.
 
 ---
 

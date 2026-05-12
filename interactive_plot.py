@@ -8,6 +8,7 @@ file_id = '1vEqyft83eOYNNn9VWypSLnIcPTDCgoFZkXiurXBEqfc'
 url = f'https://docs.google.com/spreadsheets/d/{file_id}/gviz/tq?tqx=out:csv&sheet=Sheet1'
 local_csv = 'data.csv'
 cleaned_csv = 'cleaned_data.csv'
+DEBUG = False ## off by default, enable if you wan to troubleshoot better
 
 print("Loading data...")
 df = None
@@ -53,7 +54,7 @@ def make_hover(row):
     return (
         f"<b>{name}</b><br>"
         f"Mass: {mass:.3f} M<sub>Jup</sub><br>"
-        f"Metallicity [Fe/H]: {met:+.3f}"
+        f"Metallicity [Fe/H]: {met:+.3f} "
     )
 
 hover_texts = df_filtered.apply(make_hover, axis=1).tolist()
@@ -228,13 +229,40 @@ click_js = """
 </script>
 """
 
-# Inject the panel just before </body>
+# Inject the panel just before the end of the body tag. This is the best way to ensure it loads after the Plotly plot and its dependencies, without needing to parse syntax that is...
 final_html = raw_html.replace('</body>', click_js + '\n</body>')
 
 with open(html_path, 'w', encoding='utf-8') as f:
     f.write(final_html)
 
-print(f"Interactive plot saved to: {html_path}")
+if (DEBUG):
+    print(f"Interactive plot saved to: {html_path}")
+
+## separate from debug loop, so this will always print regardless of debug mode
 print(f"  R² = {r_squared:.4f}   p = {p_value:.6f}")
 print("Please open the HTML file in a web browser that supports JavaScript to view the interactive plot and detailing.")
 
+
+
+
+
+
+
+
+
+
+
+"""
+        ~+
+
+                 *       +
+           '                  |
+       ()    .-.,="``"=.    - o -
+             '=/_       \     |
+          *   |  '=._    |
+               \     `=./`,        '
+            .   '=.__.=' `='      *
+   +                         +
+        O      *        '       .
+ascii art by Joan Stark (https://www.asciiart.eu/space/planets)
+"""

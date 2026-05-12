@@ -66,7 +66,7 @@ A linear regression was performed on the cleaned gas-giant sample using `scipy.s
 | R² | 0.0228 |
 | p-value | 0.000001 |
 
-**Interpretation:** The p-value of 0.000001 is far below the α = 0.05 significance threshold, confirming a statistically significant positive relationship between stellar metallicity and gas giant mass. The low R² value indicates that metallicity alone explains only ~2.3% of the variance in planet mass, which is expected — planetary formation is governed by many additional variables (disk mass, orbital dynamics, stellar age). The statistical significance nonetheless supports the Core Accretion Model.
+**Interpretation:** The p-value of 0.000001 is far below the α = 0.05 significance threshold, hence this confirms a statistically significant positive relationship between stellar metallicity and gas giant mass without issue. The low R² value indicates that metallicity alone explains only ~2.3% of the variance in planet mass, which is expected here. Planetary formation is governed by differing amounts of additional variables (disk mass, orbital dynamics, stellar age), so the statistical significance still supports the Core Accretion Model.
 
 ### Figure
 
@@ -97,14 +97,14 @@ SES4U-Capstone-Exoplanets/
 git clone https://github.com/0xLiam0920/SES4U-Capstone-Exoplanets.git
 cd SES4U-Capstone-Exoplanets
 
-# 2. Run the data pipeline (queries NASA live — requires internet access)
+# 2. Run the data pipeline (queries NASA live, though this requires internet access!)
 python dataquery.py
 
 # 3. Run the statistical analysis and generate the figure
 python Plotter.py
 ```
 
-The data pipeline queries NASA's servers directly, so results will reflect the most current version of the `pscomppars` table at the time of execution. Minor variation in sample size from the values reported here is expected as the archive is updated continuously.
+The pipeline queries & extracts data from NASA's servers (direct connection), so results will reflect the most current version of the `pscomppars` table at the time of execution. Minor variation in sample size from the values reported here is expected as the archive is updated continuously based on observations.
 
 ---
 
@@ -116,12 +116,12 @@ The data pipeline queries NASA's servers directly, so results will reflect the m
 
 ---
 
-## Team
+## Team details
 
 | Role | Name |
 |---|---|
-| Data Engineer | Liam |
-| Statistician | Ivan |
+| Data Engineer / Chief Coder | Liam |
+| Statistician / Analyst | Ivan |
 | Principal Investigator / Astrophysicist | Desmond |
 
-*Instructor: Mr. Hodaei — SES4U, 2026*
+*Instructor: Mr. Hodaei: Holy Trinity School, SES4U, 2026*

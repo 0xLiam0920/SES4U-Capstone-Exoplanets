@@ -124,8 +124,6 @@ The pipeline queries & extracts data from NASA's servers (direct connection), so
 
 | Role | Name |
 |---|---|
-| Data Engineer | Liam |
-| Statistician | Ivan |
 | Data Engineer / Chief Coder | Liam |
 | Statistician / Analyst | Ivan |
 | Principal Investigator / Astrophysicist | Desmond |

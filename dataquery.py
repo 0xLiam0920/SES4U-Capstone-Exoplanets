@@ -1,41 +1,97 @@
 import pandas as pd
+import urllib.error
+import urllib.parse
+import urllib.request
+import time
 
-# 1. Verification of the full NASA TAP endpoint
-# 2. Corrected column: st_metlim
-base_url = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
-query = "select pl_name,pl_massj,st_met,pl_massjlim,st_metlim from pscomppars"
+BASE_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
 
-# Formulate the URL using simple replacements to avoid standard library over-encoding
-# NASA's TAP service specifically likes '+' for spaces and literal commas
-encoded_query = query.replace(" ", "+")
-url = f"{base_url}?query={encoded_query}&format=csv"
 
-print(f"Connecting to NASA Exoplanet Archive...")
+def run_tap_query(query: str) -> pd.DataFrame:
+    params = urllib.parse.urlencode({"query": query, "format": "csv"})
+    url = f"{BASE_URL}?{params}"
 
-try:
-    # Use pandas to read directly from the URL
-    df = pd.read_csv(url)
+    last_error = None
+    for attempt in range(1, 4):
+        try:
+            with urllib.request.urlopen(url, timeout=40) as resp:
+                return pd.read_csv(resp)
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_error = exc
+            if attempt < 3:
+                wait_s = 2 * attempt
+                print(f"TAP request attempt {attempt} failed, retrying in {wait_s}s...")
+                time.sleep(wait_s)
 
-    if df.empty:
-        print("The server returned an empty file. Check your query parameters.")
-    else:
-        # Column definitions - what we wanna keep and clean.
-        keep_cols = ["pl_name", "pl_massj", "st_met", "pl_massjlim", "st_metlim"]
-        
-        # Filter and clean
-        df = df[[c for c in keep_cols if c in df.columns]]
-        
-        # Gets rid of any data that shows the metlim value between 1 and -1, since this indicates the value is a limit and not an actual measurement. Same for massjlim.
-        for col in ["pl_massjlim", "st_metlim"]:
-            if col in df.columns:
-                df = df[~df[col].isin([1, -1])]
+    raise RuntimeError(f"NASA TAP query failed after 3 attempts: {last_error}")
 
-        # Remove rows missing our two primary variables
-        df = df.dropna(subset=["pl_massj", "st_met"])
-        
-        df.to_csv("cleaned_data.csv", index=False)
-        print(f"Success! Saved {len(df)} rows to cleaned_data.csv.")
-        print(df.head())
 
-except Exception as e:
-    print(f"Failed to retrieve data: {e}") ## had to do this after it queried fine but forgot the metallic (met) data because of a bloody typo. 
+def build_mass_metallicity_dataset() -> None:
+    """Build dataset used by interactive_plot.py (planet mass vs stellar metallicity)."""
+    query = (
+        "select pl_name,pl_massj,st_met,pl_massjlim,st_metlim "
+        "from pscomppars "
+        "where pl_massj is not null and st_met is not null "
+        "and (pl_massjlim is null or pl_massjlim not in (-1,1)) "
+        "and (st_metlim is null or st_metlim not in (-1,1))"
+    )
+    df = run_tap_query(query)
+
+    keep_cols = ["pl_name", "pl_massj", "st_met", "pl_massjlim", "st_metlim"]
+    df = df[[c for c in keep_cols if c in df.columns]]
+
+    for col in ["pl_massjlim", "st_metlim"]:
+        if col in df.columns:
+            df = df[~df[col].isin([1, -1])]
+
+    df = df.dropna(subset=["pl_massj", "st_met"])
+    df.to_csv("cleaned_data.csv", index=False)
+    print(f"Saved {len(df)} rows to cleaned_data.csv")
+
+
+def build_star_trend_dataset() -> None:
+    """Build dataset used by interactive_plot_2.py (star size and iron trend analyses)."""
+    query = (
+        "select hostname,pl_name,st_mass,st_rad,st_met,st_masslim,st_radlim,st_metlim "
+        "from pscomppars "
+        "where hostname is not null and pl_name is not null "
+        "and st_mass is not null and st_rad is not null and st_met is not null "
+        "and (st_masslim is null or st_masslim not in (-1,1)) "
+        "and (st_radlim is null or st_radlim not in (-1,1)) "
+        "and (st_metlim is null or st_metlim not in (-1,1))"
+    )
+    df = run_tap_query(query)
+
+    keep_cols = [
+        "hostname",
+        "pl_name",
+        "st_mass",
+        "st_rad",
+        "st_met",
+        "st_masslim",
+        "st_radlim",
+        "st_metlim",
+    ]
+    df = df[[c for c in keep_cols if c in df.columns]]
+
+    for col in ["st_masslim", "st_radlim", "st_metlim"]:
+        if col in df.columns:
+            df = df[~df[col].isin([1, -1])]
+
+    df = df.dropna(subset=["hostname", "pl_name", "st_mass", "st_rad", "st_met"])
+    df.to_csv("star_analysis_data.csv", index=False)
+    print(f"Saved {len(df)} rows to star_analysis_data.csv")
+
+
+def main() -> None:
+    print("Connecting to NASA Exoplanet Archive...")
+    try:
+        build_mass_metallicity_dataset()
+        build_star_trend_dataset()
+        print("Data query complete.")
+    except Exception as e:
+        print(f"Failed to retrieve data: {e}")
+
+
+if __name__ == "__main__":
+    main()

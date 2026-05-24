@@ -1,4 +1,18 @@
-Linear Regression Results:
-R² = 0.0228
-p-value = 0.000001
-✓ p-value < 0.05: Theory mathematically proven!
+/Users/liamn/.pyenv/versions/3.12.6
+
+--- Additional Trend Results (interactive_plot_2.py) ---
+
+1) Size of stars vs quantity of exoplanets
+N stars = 4119
+Slope (planet_count vs st_rad) = -0.009830
+R^2 = 0.003098
+p-value = 3.516265e-04
+
+2) Same stellar mass, low iron vs high iron
+Average (high - low) planets per star across bins = 0.051012
+Paired t-test t = 0.944283
+Paired t-test p-value = 3.764678e-01
+Positive bins (high iron > low iron) = 5 / 8
+Sign test p-value = 3.632812e-01
+
+--- End Additional Trend Results ---

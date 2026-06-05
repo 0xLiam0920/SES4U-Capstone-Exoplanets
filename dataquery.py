@@ -1,3 +1,4 @@
+import io
 import pandas as pd
 import urllib.error
 import urllib.parse
@@ -14,8 +15,9 @@ def run_tap_query(query: str) -> pd.DataFrame:
     last_error = None
     for attempt in range(1, 4):
         try:
-            with urllib.request.urlopen(url, timeout=40) as resp:
-                return pd.read_csv(resp)
+            with urllib.request.urlopen(url, timeout=60) as resp:
+                raw = resp.read()
+            return pd.read_csv(io.BytesIO(raw))
         except (urllib.error.URLError, TimeoutError) as exc:
             last_error = exc
             if attempt < 3:
@@ -27,9 +29,9 @@ def run_tap_query(query: str) -> pd.DataFrame:
 
 
 def build_mass_metallicity_dataset() -> None:
-    """Build dataset used by interactive_plot.py (planet mass vs stellar metallicity)."""
+    """Build dataset used by MAINDATASET_plotter.py and OCCURRENCE_plotter.py."""
     query = (
-        "select pl_name,pl_massj,st_met,pl_massjlim,st_metlim "
+        "select hostname,pl_name,pl_massj,st_met,pl_massjlim,st_metlim "
         "from pscomppars "
         "where pl_massj is not null and st_met is not null "
         "and (pl_massjlim is null or pl_massjlim not in (-1,1)) "
@@ -37,7 +39,7 @@ def build_mass_metallicity_dataset() -> None:
     )
     df = run_tap_query(query)
 
-    keep_cols = ["pl_name", "pl_massj", "st_met", "pl_massjlim", "st_metlim"]
+    keep_cols = ["hostname", "pl_name", "pl_massj", "st_met", "pl_massjlim", "st_metlim"]
     df = df[[c for c in keep_cols if c in df.columns]]
 
     for col in ["pl_massjlim", "st_metlim"]:
@@ -50,7 +52,7 @@ def build_mass_metallicity_dataset() -> None:
 
 
 def build_star_trend_dataset() -> None:
-    """Build dataset used by interactive_plot_2.py (star size and iron trend analyses)."""
+    """Build dataset used by SIZEVSQUANTITY_plotter.py (star size analyses)."""
     query = (
         "select hostname,pl_name,st_mass,st_rad,st_met,st_masslim,st_radlim,st_metlim "
         "from pscomppars "
@@ -63,14 +65,8 @@ def build_star_trend_dataset() -> None:
     df = run_tap_query(query)
 
     keep_cols = [
-        "hostname",
-        "pl_name",
-        "st_mass",
-        "st_rad",
-        "st_met",
-        "st_masslim",
-        "st_radlim",
-        "st_metlim",
+        "hostname", "pl_name", "st_mass", "st_rad", "st_met",
+        "st_masslim", "st_radlim", "st_metlim",
     ]
     df = df[[c for c in keep_cols if c in df.columns]]
 

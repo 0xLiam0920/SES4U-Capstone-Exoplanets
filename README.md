@@ -130,3 +130,10 @@ The pipeline queries & extracts data from NASA's servers (direct connection), so
 
 *Instructor: Mr. Hodaei — SES4U, 2026*
 *Instructor: Mr. Hodaei: Holy Trinity School, SES4U, 2026*
+
+
+TODO:
+
+- Add HR diagram query and generation.
+- Reorganzie folder structure
+- Jal'ail al shisha

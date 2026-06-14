@@ -5,10 +5,15 @@ import pandas as pd
 import plotly.graph_objects as go
 
 
+
+
+
+
 ## ----------- file definitions ----------- ##
 HERE = os.path.dirname(os.path.abspath(__file__))
-HR_CSV = os.path.join(HERE, "HR_dataset.csv")
+HR_CSV  = os.path.join(HERE, "HR_dataset.csv")
 HR_HTML = os.path.join(HERE, "HR_plot.html")
+STAR_CSV = os.path.join(os.path.dirname(HERE), "star_analysis_data.csv")
 
 
 ## ----------- helpers ----------- ##
@@ -41,9 +46,29 @@ def load_hr_data(path: str = HR_CSV) -> pd.DataFrame:
 		agg["st_met"] = "median"
 	if "sy_pnum" in df.columns:
 		agg["sy_pnum"] = "max"
+	if "pl_bmasse" in df.columns:
+		agg["pl_bmasse"] = "sum"  # total planet mass per star (Earth masses)
 
 	stars = df.groupby("hostname", as_index=False).agg(agg)
 	stars = stars.dropna(subset=["st_teff", "st_lum"])
+
+	# ---- mass-ratio classification ----
+	if "pl_bmasse" in stars.columns and os.path.exists(STAR_CSV):
+		sdf = pd.read_csv(STAR_CSV)[["hostname", "st_mass"]].dropna(subset=["st_mass"])
+		st_mass_med = sdf.groupby("hostname", as_index=False)["st_mass"].median()
+		stars = stars.merge(st_mass_med, on="hostname", how="left")
+
+	if "pl_bmasse" in stars.columns and "st_mass" in stars.columns:
+		# Dimensionless ratio: total planet mass / star mass (both in Earth masses; 1 M_sun = 333 000 M_earth)
+		stars["mass_ratio"] = stars["pl_bmasse"] / (stars["st_mass"] * 333000)
+		valid = stars["mass_ratio"].notna() & (stars["mass_ratio"] > 0)
+		threshold = stars.loc[valid, "mass_ratio"].quantile(0.90)
+		stars["mass_class"] = "unknown"
+		stars.loc[valid & (stars["mass_ratio"] >= threshold), "mass_class"] = "high"
+		stars.loc[valid & (stars["mass_ratio"] < threshold),  "mass_class"] = "low"
+	else:
+		stars["mass_class"] = "unknown"
+
 	return stars
 
 
@@ -84,52 +109,73 @@ def add_spectral_bands(fig: go.Figure, y_min: float, y_max: float, t_min: float,
 ## ----------- plot ----------- ##
 def plot_hr_diagram(stars: pd.DataFrame):
 	"""Create the HR diagram and write it to HR_plot.html."""
-	planet_counts = stars["sy_pnum"] if "sy_pnum" in stars.columns else pd.Series([1] * len(stars))
-	sizes = 6 + 2.2 * planet_counts.clip(lower=1, upper=10)
-
-	if "st_met" in stars.columns:
-		met_str = stars["st_met"].apply(lambda v: f"{v:+.3f}" if pd.notna(v) else "n/a")
-	else:
-		met_str = pd.Series(["n/a"] * len(stars), index=stars.index)
-
-	custom = list(zip(planet_counts.fillna(1).astype(int), met_str))
+	# Groups: (mass_class, marker symbol, legend label)
+	_GROUPS = [
+		("high",    "diamond",     "High planet/star mass ratio (top 10%)"),
+		("low",     "circle",      "Low planet/star mass ratio (bottom 90%)"),
+		("unknown", "circle-open", "Mass ratio unavailable"),
+	]
 
 	fig = go.Figure()
-	fig.add_trace(
-		go.Scatter(
-			x=stars["st_teff"],
-			y=stars["st_lum"],
-			mode="markers",
-			name="Exoplanet host stars",
-			marker=dict(
-				size=sizes,
-				color=stars["st_teff"],
-				colorscale="RdBu",
-				reversescale=False,
-				cmin=2500,
-				cmax=10000,
-				opacity=0.85,
-				line=dict(width=0.4, color="white"),
-				colorbar=dict(
-					title="T_eff (K)",
-					x=1.02,
-					y=0.5,
-					len=0.88,
-					thickness=22,
-				),
-			),
-			text=stars["hostname"],
-			customdata=custom,
-			hovertemplate=(
-				"<b>%{text}</b><br>"
-				"T_eff: %{x:.0f} K<br>"
-				"log(L/L_sun): %{y:.3f}<br>"
-				"Planets in system: %{customdata[0]}<br>"
-				"[Fe/H]: %{customdata[1]}"
-				"<extra></extra>"
-			),
+	first_trace = True
+	for cls, symbol, label in _GROUPS:
+		if "mass_class" in stars.columns:
+			sub = stars[stars["mass_class"] == cls]
+		elif cls == "unknown":
+			sub = stars  # fallback: no classification data
+		else:
+			continue
+		if sub.empty:
+			continue
+
+		pc = sub["sy_pnum"] if "sy_pnum" in sub.columns else pd.Series([1] * len(sub), index=sub.index)
+		sizes = (6 + 2.2 * pc.clip(lower=1, upper=10)).values
+
+		met_str = (
+			sub["st_met"].apply(lambda v: f"{v:+.3f}" if pd.notna(v) else "n/a")
+			if "st_met" in sub.columns
+			else pd.Series(["n/a"] * len(sub), index=sub.index)
 		)
-	)
+		ratio_str = (
+			sub["mass_ratio"].apply(lambda v: f"{v:.3e}" if pd.notna(v) else "n/a")
+			if "mass_ratio" in sub.columns
+			else pd.Series(["n/a"] * len(sub), index=sub.index)
+		)
+		custom = list(zip(pc.fillna(1).astype(int), met_str, ratio_str))
+
+		fig.add_trace( 
+			go.Scatter(
+				x=sub["st_teff"],
+				y=sub["st_lum"],
+				mode="markers",
+				name=label,
+				marker=dict(
+					symbol=symbol,
+					size=sizes,
+					color=sub["st_teff"],
+					colorscale="RdBu",
+					reversescale=False,
+					cmin=2500,
+					cmax=10000,
+					opacity=0.85,
+					line=dict(width=0.4, color="white"),
+					showscale=first_trace,
+					colorbar=dict(title="T_eff (K)", x=1.02, y=0.5, len=0.88, thickness=22),
+				),
+				text=sub["hostname"],
+				customdata=custom,
+				hovertemplate=(
+					"<b>%{text}</b><br>"
+					"T_eff: %{x:.0f} K<br>"
+					"log(L/L_sun): %{y:.3f}<br>"
+					"Planets in system: %{customdata[0]}<br>"
+					"[Fe/H]: %{customdata[1]}<br>"
+					"Planet/star mass ratio: %{customdata[2]}"
+					"<extra></extra>"
+				),
+			)
+		)
+		first_trace = False
 
 	# Sun reference (T=5772 K, log L = 0)
 	fig.add_trace(
@@ -152,7 +198,7 @@ def plot_hr_diagram(stars: pd.DataFrame):
 
 	add_spectral_bands(fig, y_lo, y_hi, t_lo, t_hi)
 
-	fig.update_layout(
+	fig.update_layout( ## this is absolute gold, everything fits perfect suprisingly.
 		title=dict(text="Hertzsprung-Russell Diagram of Exoplanet Host Stars", x=0.02, xanchor="left"),
 		xaxis=dict(
 			title="Stellar Effective Temperature T_eff (K)",

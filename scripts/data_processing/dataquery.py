@@ -9,6 +9,7 @@ BASE_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
 
 
 def run_tap_query(query: str) -> pd.DataFrame:
+    """Run a TAP query with retries because networks love chaos."""
     params = urllib.parse.urlencode({"query": query, "format": "csv"})
     url = f"{BASE_URL}?{params}"
 
@@ -21,15 +22,15 @@ def run_tap_query(query: str) -> pd.DataFrame:
         except (urllib.error.URLError, TimeoutError) as exc:
             last_error = exc
             if attempt < 3:
-                wait_s = 2 * attempt
-                print(f"TAP request attempt {attempt} failed, retrying in {wait_s}s...")
-                time.sleep(wait_s)
+                retryWait = 2 * attempt
+                print(f"TAP request attempt {attempt} failed, retrying in {retryWait}s...")
+                time.sleep(retryWait)
 
     raise RuntimeError(f"NASA TAP query failed after 3 attempts: {last_error}")
 
 
 def build_mass_metallicity_dataset() -> None:
-    """Build dataset used by MAINDATASET_plotter.py and OCCURRENCE_plotter.py."""
+    """Build the metallicity/mass dataset used by two plotting scripts."""
     query = (
         "select hostname,pl_name,pl_massj,st_met,pl_massjlim,st_metlim "
         "from pscomppars "
@@ -39,8 +40,8 @@ def build_mass_metallicity_dataset() -> None:
     )
     df = run_tap_query(query)
 
-    keep_cols = ["hostname", "pl_name", "pl_massj", "st_met", "pl_massjlim", "st_metlim"]
-    df = df[[c for c in keep_cols if c in df.columns]]
+    keepCols = ["hostname", "pl_name", "pl_massj", "st_met", "pl_massjlim", "st_metlim"]
+    df = df[[c for c in keepCols if c in df.columns]]
 
     for col in ["pl_massjlim", "st_metlim"]:
         if col in df.columns:
@@ -52,7 +53,7 @@ def build_mass_metallicity_dataset() -> None:
 
 
 def build_star_trend_dataset() -> None:
-    """Build dataset used by SIZEVSQUANTITY_plotter.py (star size analyses)."""
+    """Build the star trend dataset used by the size-vs-quantity analysis."""
     query = (
         "select hostname,pl_name,st_mass,st_rad,st_met,st_masslim,st_radlim,st_metlim "
         "from pscomppars "
@@ -84,7 +85,7 @@ def main() -> None:
     try:
         build_mass_metallicity_dataset()
         build_star_trend_dataset()
-        print("Data query complete.")
+        print("Data query complete. You may find the relevant CSVs in your project root.")
     except Exception as e:
         print(f"Failed to retrieve data: {e}")
 

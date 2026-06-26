@@ -24,7 +24,7 @@ DEBUG = False ## off by default, enable if you want to troubleshoot better
 
 # ----------- functions ----------- ##
 
-## Purpose of function: To query and load raw data from local CSV or Google sheets, with some error handling.
+## Purpose: load data from URL if available, otherwise local CSV like a sensible backup plan.
 def load_data(url: str = None) -> pd.DataFrame:
 	"""Load stellar dataset prepared by dataquery.py or from a provided URL."""
 	try:
@@ -79,16 +79,18 @@ def clean_star_level_table(df: pd.DataFrame) -> pd.DataFrame:
 			st_met=("st_met", "median"),
 		)
 	)
+	starSummary = star_summary  
 	if DEBUG:
 			print("DEBUG: Sample of cleaned star-level table:")
-			print(star_summary.head())
+			print(starSummary.head())
 	
-	print(f"Prepared star-level table in memory ({len(star_summary)} stars)")
-	return star_summary
+	print(f"Prepared star-level table in memory ({len(starSummary)} stars)")
+	return starSummary
 
 
 def plot_star_size_vs_planet_count(star_summary: pd.DataFrame):
 	"""Create plot and stats for stellar radius vs number of exoplanets."""
+	# Plotly call chain ahead. It is long, but at least it's readable-ish.
 	slope, intercept, r_value, p_value, _ = stats.linregress(
 		star_summary["st_rad"], star_summary["planet_count"]
 	)
@@ -163,7 +165,7 @@ def plot_star_size_vs_planet_count(star_summary: pd.DataFrame):
 
 def build_mass_bin_comparison(star_summary: pd.DataFrame):
 	"""Compare low-iron vs high-iron stars at similar masses."""
-	# Build mass bins so each bin has a reasonable number of stars.
+	# Build mass bins so each bin has a reasonable number of stars. Yes, this is a bit arbitrary, but it is a reasonable approach for proper analysis.
 	n_bins = 8
 	mass_binned = star_summary.copy()
 	mass_binned["mass_bin"] = pd.qcut(
@@ -202,7 +204,7 @@ def build_mass_bin_comparison(star_summary: pd.DataFrame):
 	if comparison.empty:
 		return comparison, None
 
-	# Statistical tests on per-bin paired differences, needed since mass bins depend on the data for everything
+	# Statistical tests on per-bin paired differences (because eyeballing bars is not science).
 	diffs = comparison["difference_high_minus_low"]
 	t_stat, t_p_value = stats.ttest_1samp(diffs, popmean=0.0)
 	positive_bins = int((diffs > 0).sum())
@@ -249,6 +251,7 @@ def plot_same_mass_iron_comparison(comparison: pd.DataFrame):
 
 
 def write_stats_file(size_stats, iron_stats):
+	"""Write or replace the extra results section in regression_results.txt."""
 	lines = [
 		SECTION_START,
 		"",
@@ -290,10 +293,10 @@ def write_stats_file(size_stats, iron_stats):
 	start_idx = existing.find(SECTION_START)
 	end_idx = existing.find(SECTION_END)
 
-	if start_idx != -1 and end_idx != -1 and end_idx > start_idx: ## Loop explanation: 
-		end_idx = end_idx + len(SECTION_END)					  ## if both loop markers are found and in the correct order, we replace the existing section with the new one, 
-		suffix = existing[end_idx:].lstrip()					  ## preserving any content before or after the section. 
-		if prefix and suffix:									  ## If the markers are not found, we append the new section to the end of the file. Otherwise, we just give up and write as is.
+	if start_idx != -1 and end_idx != -1 and end_idx > start_idx: ## if the section exists, replace it. Simple as.
+		end_idx = end_idx + len(SECTION_END)
+		suffix = existing[end_idx:].lstrip()
+		if prefix and suffix:
 			rebuilt = (prefix + "\n\n" + new_section + "\n" + suffix).strip() + "\n"
 		elif prefix:
 			rebuilt = (prefix + "\n\n" + new_section).strip() + "\n"

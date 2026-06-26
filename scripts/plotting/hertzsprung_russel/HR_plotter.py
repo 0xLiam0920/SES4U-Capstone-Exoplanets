@@ -51,25 +51,26 @@ def load_hr_data(path: str = HR_CSV) -> pd.DataFrame:
 
 	stars = df.groupby("hostname", as_index=False).agg(agg)
 	stars = stars.dropna(subset=["st_teff", "st_lum"])
+	hostStars = stars  
 
 	# ---- mass-ratio classification ----
-	if "pl_bmasse" in stars.columns and os.path.exists(STAR_CSV):
+	if "pl_bmasse" in hostStars.columns and os.path.exists(STAR_CSV):
 		sdf = pd.read_csv(STAR_CSV)[["hostname", "st_mass"]].dropna(subset=["st_mass"])
 		st_mass_med = sdf.groupby("hostname", as_index=False)["st_mass"].median()
-		stars = stars.merge(st_mass_med, on="hostname", how="left")
+		hostStars = hostStars.merge(st_mass_med, on="hostname", how="left")
 
-	if "pl_bmasse" in stars.columns and "st_mass" in stars.columns:
+	if "pl_bmasse" in hostStars.columns and "st_mass" in hostStars.columns:
 		# Dimensionless ratio: total planet mass / star mass (both in Earth masses; 1 M_sun = 333 000 M_earth)
-		stars["mass_ratio"] = stars["pl_bmasse"] / (stars["st_mass"] * 333000)
-		valid = stars["mass_ratio"].notna() & (stars["mass_ratio"] > 0)
-		threshold = stars.loc[valid, "mass_ratio"].quantile(0.90)
-		stars["mass_class"] = "unknown"
-		stars.loc[valid & (stars["mass_ratio"] >= threshold), "mass_class"] = "high"
-		stars.loc[valid & (stars["mass_ratio"] < threshold),  "mass_class"] = "low"
+		hostStars["mass_ratio"] = hostStars["pl_bmasse"] / (hostStars["st_mass"] * 333000)
+		valid = hostStars["mass_ratio"].notna() & (hostStars["mass_ratio"] > 0)
+		threshold = hostStars.loc[valid, "mass_ratio"].quantile(0.90)
+		hostStars["mass_class"] = "unknown"
+		hostStars.loc[valid & (hostStars["mass_ratio"] >= threshold), "mass_class"] = "high"
+		hostStars.loc[valid & (hostStars["mass_ratio"] < threshold),  "mass_class"] = "low"
 	else:
-		stars["mass_class"] = "unknown"
+		hostStars["mass_class"] = "unknown"
 
-	return stars
+	return hostStars
 
 
 ## ----------- spectral-class shading ----------- ##
@@ -198,7 +199,7 @@ def plot_hr_diagram(stars: pd.DataFrame):
 
 	add_spectral_bands(fig, y_lo, y_hi, t_lo, t_hi)
 
-	fig.update_layout( ## this is absolute gold, everything fits perfect suprisingly.
+	fig.update_layout(  # Weirdly this layout behaved on the first try. Suspicious.
 		title=dict(text="Hertzsprung-Russell Diagram of Exoplanet Host Stars", x=0.02, xanchor="left"),
 		xaxis=dict(
 			title="Stellar Effective Temperature T_eff (K)",

@@ -2,8 +2,9 @@ import pandas as pd
 import os
 from scipy import stats
 import plotly.graph_objects as go
+import matplotlib.pyplot as plt
 
-# ----------------- Data loading (mirrors Plotter.py logic) ----------------- #
+# ----------------- Data loading (same logic, less drama) ----------------- #
 file_id = '1vEqyft83eOYNNn9VWypSLnIcPTDCgoFZkXiurXBEqfc'
 url = f'https://docs.google.com/spreadsheets/d/{file_id}/gviz/tq?tqx=out:csv&sheet=Sheet1'
 local_csv = 'data.csv'
@@ -13,7 +14,7 @@ DEBUG = False ## off by default, enable if you wan to troubleshoot better
 print("Loading data...")
 df = None
 
-# Prefer the cleaned NASA dataset if available, then fall back to the Google Sheet CSV
+# Prefer the cleaned NASA dataset if available, then fall back to the sheet.
 if os.path.exists(cleaned_csv):
     print(f"Using cleaned dataset: {cleaned_csv}")
     df = pd.read_csv(cleaned_csv)
@@ -35,15 +36,16 @@ metal_col = 'st_met'
 name_col  = 'pl_name'
 
 df_filtered = df[df[mass_col] > 0.157].dropna(subset=[mass_col, metal_col]).copy()
+dfFiltered = df_filtered 
 print(f"Plotting {len(df_filtered)} gas giants")
 
 # ----------------- Linear regression ----------------- #
 slope, intercept, r_value, p_value, std_err = stats.linregress(
-    df_filtered[metal_col], df_filtered[mass_col]
+  dfFiltered[metal_col], dfFiltered[mass_col]
 )
 r_squared = r_value ** 2
 
-x_range = [df_filtered[metal_col].min(), df_filtered[metal_col].max()]
+x_range = [dfFiltered[metal_col].min(), dfFiltered[metal_col].max()]
 y_reg   = [slope * x + intercept for x in x_range]
 
 # ----------------- Function to build the hover text for each point ----------------- ##
@@ -57,26 +59,26 @@ def make_hover(row):
         f"Metallicity [Fe/H]: {met:+.3f} "
     )
 
-hover_texts = df_filtered.apply(make_hover, axis=1).tolist()
+hover_texts = dfFiltered.apply(make_hover, axis=1).tolist()
 
 # Custom data attached to each point (used by the JS click panel)
 custom_data = list(zip(
-    df_filtered.get(name_col, ["Unknown"] * len(df_filtered)),
-    df_filtered[mass_col].round(4),
-    df_filtered[metal_col].round(4),
+  dfFiltered.get(name_col, ["Unknown"] * len(dfFiltered)),
+  dfFiltered[mass_col].round(4),
+  dfFiltered[metal_col].round(4),
 ))
 
-# ----------------- Creating the plotly figure with scatter points and regression line ----------------- #
+# ----------------- Plotly figure (because static is boring during exploration) ----------------- #
 fig = go.Figure()
 
 # Scatter points
 fig.add_trace(go.Scatter(
-    x=df_filtered[metal_col],
-    y=df_filtered[mass_col],
+  x=dfFiltered[metal_col],
+  y=dfFiltered[mass_col],
     mode='markers',
     name='Gas Giants',
     marker=dict(
-        color=df_filtered[mass_col],
+      color=dfFiltered[mass_col],
         colorscale='Viridis',
         size=7,
         opacity=0.8,
@@ -117,7 +119,7 @@ html_path = 'interactive_plot.html'
 # Generate base Plotly HTML
 raw_html = fig.to_html(full_html=True, include_plotlyjs='cdn')
 
-# JavaScript that listens for click events and shows a floating detail panel
+# JavaScript that listens for click events and shows a floating detail panel, so users can actually click stuff.
 click_js = """
 <style>
   #planet-panel { 
@@ -229,7 +231,7 @@ click_js = """
 </script>
 """
 
-# Inject the panel just before the end of the body tag. This is the best way to ensure it loads after the Plotly plot and its dependencies, without needing to parse syntax that is...
+# Inject panel near the end of body so it loads properly after Plotly.
 final_html = raw_html.replace('</body>', click_js + '\n</body>')
 
 with open(html_path, 'w', encoding='utf-8') as f:
@@ -238,7 +240,38 @@ with open(html_path, 'w', encoding='utf-8') as f:
 if (DEBUG):
     print(f"Interactive plot saved to: {html_path}")
 
-## separate from debug loop, so this will always print regardless of debug mode anyway.
+# ----------------- Publication-quality static figure (JEI Figure 1) ----------------- #
+plt.rcParams.update({
+    "font.size": 13,
+    "axes.labelsize": 15,
+    "axes.labelweight": "bold",
+    "xtick.labelsize": 13,
+    "ytick.labelsize": 13,
+    "legend.fontsize": 12,
+})
+
+fig_pub, ax_pub = plt.subplots(figsize=(8, 5.5))
+points = ax_pub.scatter(
+  dfFiltered[metal_col], dfFiltered[mass_col],
+  c=dfFiltered[mass_col], cmap='viridis', s=22, alpha=0.8,
+    edgecolors='white', linewidths=0.3, label='Gas giants',
+)
+ax_pub.plot(x_range, y_reg, '--', color='crimson', lw=2, label='Linear fit')
+cbar = fig_pub.colorbar(points, ax=ax_pub, pad=0.02)
+cbar.set_label('Planet Mass (M$_{Jup}$)')
+ax_pub.set_xlabel('Host Star Metallicity [Fe/H]')
+ax_pub.set_ylabel('Planet Mass (M$_{Jup}$)')
+ax_pub.legend(loc='upper right', frameon=False)
+ax_pub.spines[['top', 'right']].set_visible(False)
+fig_pub.tight_layout()
+fig_pub.savefig('fig_metallicity_vs_mass.tiff', dpi=600, bbox_inches='tight',
+                pil_kwargs={'compression': 'tiff_lzw'})
+fig_pub.savefig('fig_metallicity_vs_mass.jpg', dpi=600, bbox_inches='tight',
+                pil_kwargs={'quality': 95})
+plt.close(fig_pub)
+print("Saved publication figure: fig_metallicity_vs_mass.{tiff,jpg}")
+
+## Outside debug on purpose, because these numbers are the whole point.
 print(f"  R² = {r_squared:.4f}   p = {p_value:.6f}")
 print("Please open the HTML file in a web browser that supports JavaScript to view the interactive plot and detailing.")
 

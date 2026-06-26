@@ -16,3 +16,6 @@ Positive bins (high iron > low iron) = 5 / 8
 Sign test p-value = 3.632812e-01
 
 --- End Additional Trend Results ---
+
+
+## Note: as per maindataset_plotter.py, R² = 0.0211   p = 0.000002

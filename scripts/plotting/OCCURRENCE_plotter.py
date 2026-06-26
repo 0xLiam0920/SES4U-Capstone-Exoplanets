@@ -42,12 +42,13 @@ hosts = df.groupby("hostname").agg(
     st_met    = ("st_met",   "first"),
     n_planets = ("pl_name",  "count"),
 ).reset_index()
-hosts["has_giant"] = hosts["max_massj"] > GIANT_MJ
+hosts_df = hosts  # mixed naming for realism; same data, different vibe.
+hosts_df["has_giant"] = hosts_df["max_massj"] > GIANT_MJ
 
-giants = hosts.loc[ hosts["has_giant"], "st_met"].values
-smalls = hosts.loc[~hosts["has_giant"], "st_met"].values
+giants = hosts_df.loc[ hosts_df["has_giant"], "st_met"].values
+smalls = hosts_df.loc[~hosts_df["has_giant"], "st_met"].values
 
-print(f"Hosts total:          {len(hosts)}")
+print(f"Hosts total:          {len(hosts_df)}")
 print(f"  Giant hosts:        {len(giants)}  (max planet > 50 ME)")
 print(f"  Small-only hosts:   {len(smalls)}")
 
@@ -59,8 +60,8 @@ print(f"  Mean [Fe/H] small-only: {smalls.mean():+.4f}")
 print(f"  Difference in means:    {giants.mean()-smalls.mean():+.4f} dex")
 
 # ----------------- (A) Fischer-style binned occurrence rate -----------------
-hosts["bin"] = pd.cut(hosts["st_met"], bins=BIN_EDGES)
-grp = hosts.groupby("bin", observed=True).agg(
+hosts_df["bin"] = pd.cut(hosts_df["st_met"], bins=BIN_EDGES)
+grp = hosts_df.groupby("bin", observed=True).agg(
     n_total=("has_giant","count"),
     n_giant=("has_giant","sum"),
 ).reset_index()
@@ -79,7 +80,34 @@ print(f"  R² = {r**2:.4f},  p = {p_pwr:.4e}")
 grp.to_csv("occurrence_bins.csv", index=False)
 
 # ============================ FIGURES ============================
-# --- Figure 1: Occurrence rate ---
+# JEI figure styling: titles live in the caption (none on the figure), no
+# top/right frame, all graph text >= 12 pt with bold 15 pt axis labels, and
+# export at high DPI as lossless TIFF (+ a JPEG preview).
+plt.rcParams.update({
+    "font.size": 13,
+    "axes.labelsize": 15,
+    "axes.labelweight": "bold",
+    "xtick.labelsize": 13,
+    "ytick.labelsize": 13,
+    "legend.fontsize": 12,
+})
+
+
+def _despine(ax):
+    """Remove the top/right frame so the figure has no enclosing border."""
+    ax.spines[["top", "right"]].set_visible(False)
+
+
+def _save_publication(fig, stem):
+    """Save high-DPI TIFF (submission) and JPEG (preview) versions."""
+    # TIFF is for submission quality, JPEG is for quick sharing.
+    fig.savefig(f"{stem}.tiff", dpi=600, bbox_inches="tight",
+                pil_kwargs={"compression": "tiff_lzw"})
+    fig.savefig(f"{stem}.jpg", dpi=600, bbox_inches="tight",
+                pil_kwargs={"quality": 95})
+
+
+# --- Figure: Occurrence rate ---
 fig, ax = plt.subplots(figsize=(8, 5.5), dpi=130)
 ax.errorbar(qual["center"], qual["frac"],
             yerr=[qual["frac"]-qual["ci_lo"], qual["ci_hi"]-qual["frac"]],
@@ -87,22 +115,21 @@ ax.errorbar(qual["center"], qual["frac"],
             label='Binned occurrence (95% Wilson CI)')
 for _, row in qual.iterrows():
     ax.annotate(f"n={row['n_total']}", (row["center"], row["frac"]),
-                textcoords="offset points", xytext=(0, 8), ha='center',
-                fontsize=7, color='#666')
+                textcoords="offset points", xytext=(0, 12), ha='center',
+                fontsize=12, color='#666')
 xfit = np.linspace(qual["center"].min(), qual["center"].max(), 100)
 yfit = 10**(intercept + slope*xfit)
 ax.plot(xfit, yfit, '--', color='crimson', lw=2,
-        label=f"Power law:  P = {10**intercept:.3f} × 10$^{{{slope:.3f}[Fe/H]}}$\n"
-              f"  R² = {r**2:.3f},  p = {p_pwr:.2e}")
-ax.set_xlabel('Host Star Metallicity  [Fe/H]  (dex)', fontsize=11)
-ax.set_ylabel(r'Fraction of Hosts with a Gas Giant ($M_p$ > 50 $M_\oplus$)', fontsize=11)
-ax.set_title('Gas Giant Occurrence Rate vs Stellar Metallicity', fontsize=13)
-ax.set_ylim(0, 1.05); ax.grid(alpha=0.3); ax.legend(loc='lower right', fontsize=10)
+        label=f"Power law:  P = {10**intercept:.3f} × 10$^{{{slope:.3f}[Fe/H]}}$")
+ax.set_xlabel('Host Star Metallicity  [Fe/H]  (dex)')
+ax.set_ylabel(r'Fraction of Hosts with a Gas Giant ($M_p$ > 50 $M_\oplus$)')
+ax.set_ylim(0, 1.05); ax.grid(alpha=0.3); ax.legend(loc='lower right')
+_despine(ax)
 plt.tight_layout()
-plt.savefig('fig_occurrence_rate.png', dpi=150, bbox_inches='tight')
+_save_publication(fig, 'fig_occurrence_rate')
 plt.close()
 
-# --- Figure 2: KS test (hist + CDF) ---
+# --- Figure: KS test (hist + CDF) ---
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5), dpi=130)
 edges = np.arange(-1.0, 0.85, 0.075)
 ax1.hist(smalls, bins=edges, alpha=0.55, color='#4a90d9', density=True,
@@ -113,10 +140,10 @@ ax1.axvline(smalls.mean(), color='#1a4f8a', ls='--', lw=1.5,
             label=f'small-only mean = {smalls.mean():+.3f}')
 ax1.axvline(giants.mean(), color='#8b0000', ls='--', lw=1.5,
             label=f'giant mean = {giants.mean():+.3f}')
-ax1.set_xlabel('Host Star Metallicity  [Fe/H]  (dex)', fontsize=11)
-ax1.set_ylabel('Probability Density', fontsize=11)
-ax1.set_title('Metallicity Distributions: Giant vs Small-only Hosts', fontsize=12)
-ax1.legend(loc='upper left', fontsize=9); ax1.grid(alpha=0.3)
+ax1.set_xlabel('Host Star Metallicity  [Fe/H]  (dex)')
+ax1.set_ylabel('Probability Density')
+ax1.legend(loc='upper left'); ax1.grid(alpha=0.3)
+_despine(ax1)
 
 xs = np.sort(np.concatenate([giants, smalls]))
 def ecdf(a, x): return np.searchsorted(np.sort(a), x, side='right')/len(a)
@@ -129,16 +156,16 @@ ax2.vlines(xs[imax], ecdf(giants, xs)[imax], ecdf(smalls, xs)[imax],
 ax2.annotate(f'D = {ks.statistic:.3f}',
              (xs[imax], (ecdf(smalls, xs)[imax] + ecdf(giants, xs)[imax])/2),
              textcoords="offset points", xytext=(10, 0),
-             fontsize=11, fontweight='bold')
-ax2.set_xlabel('Host Star Metallicity  [Fe/H]  (dex)', fontsize=11)
-ax2.set_ylabel('Empirical CDF', fontsize=11)
-ax2.set_title(f'KS Test:  D = {ks.statistic:.4f},  p = {ks.pvalue:.2e}', fontsize=12)
-ax2.legend(loc='lower right', fontsize=10); ax2.grid(alpha=0.3)
+             fontsize=13, fontweight='bold')
+ax2.set_xlabel('Host Star Metallicity  [Fe/H]  (dex)')
+ax2.set_ylabel('Empirical CDF')
+ax2.legend(loc='lower right'); ax2.grid(alpha=0.3)
+_despine(ax2)
 plt.tight_layout()
-plt.savefig('fig_buchhave_ks.png', dpi=150, bbox_inches='tight')
+_save_publication(fig, 'fig_buchhave_ks')
 plt.close()
 
-print("\nSaved: fig_occurrence_rate.png, fig_buchhave_ks.png, occurrence_bins.csv")
+print("\nSaved: fig_occurrence_rate.{tiff,jpg}, fig_buchhave_ks.{tiff,jpg}, occurrence_bins.csv")
 
 # ----------------- UPDATED dataquery.py SNIPPET -----------------
 UPDATED_QUERY = """

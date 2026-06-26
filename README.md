@@ -1,4 +1,4 @@
-# SES4U Capstone — Gas Giant Frequency & Stellar Metallicity
+# SES4U Capstone: Gas Giant Frequency & Stellar Metallicity
 
 > A replication study of the Metallicity–Planet Mass correlation using live data from the NASA Exoplanet Archive.
 > *Submitted to the Journal of Emerging Investigators (JEI) SES4U, 2026*
@@ -76,16 +76,6 @@ A linear regression was performed on the cleaned gas-giant sample using `scipy.s
 
 ---
 
-## Repository Structure
-
-```
-SES4U-Capstone-Exoplanets/
-├── dataquery.py             # Data extraction, cleaning, and export pipeline
-├── Plotter.py               # Linear regression and scatter plot generation
-├── metallicity_vs_mass.png  # Output figure
-├── regression_results.txt   # Numerical regression output (R², p-value)
-└── README.md
-```
 
 ---
 
